@@ -1,0 +1,12 @@
+#ifndef OPENSTUDIO_BENCHMARK_RESOURCES_HXX
+#define OPENSTUDIO_BENCHMARK_RESOURCES_HXX
+
+#include <openstudio/utilities/core/Path.hpp>
+
+inline openstudio::path resourcesPath()
+{
+  return openstudio::toPath("${PROJECT_SOURCE_DIR}");
+}
+
+#endif // OPENSTUDIO_BENCHMARK_RESOURCES_HXX
+
