@@ -75,7 +75,7 @@ def infer_products_dir() -> Path:
     --------
     * products_dir (pathlib.Path): the path to the Products directory
     """
-    matches = gb.glob(str(ROOT_DIR / '**/Products/benchmark'), recursive=True)
+    matches = gb.glob(str(ROOT_DIR / '**/Products/'), recursive=True)
     matches = [x for x in matches if Path(x).is_dir()]
     if len(matches) == 0:
         raise IOError(
@@ -118,7 +118,7 @@ def list_benchmarks(products_dir: Path) -> list[str]:
     bench_names: the names of the executables
     """
 
-    matches = products_dir.glob('*')
+    matches = products_dir.glob('**/*_Benchmark')
     matches = filter(is_executable, matches)
     matches = filter(is_benchmark, matches)
     return matches
