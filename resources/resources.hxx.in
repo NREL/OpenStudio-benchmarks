@@ -5,7 +5,7 @@
 
 inline openstudio::path resourcesPath()
 {
-  return openstudio::toPath("${PROJECT_SOURCE_DIR}");
+  return openstudio::toPath("${PROJECT_SOURCE_DIR}/resources");
 }
 
 #endif // OPENSTUDIO_BENCHMARK_RESOURCES_HXX

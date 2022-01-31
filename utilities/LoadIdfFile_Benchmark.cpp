@@ -5,8 +5,8 @@
 #include <openstudio/utilities/core/Filesystem.hpp>
 #include <openstudio/utilities/core/Assert.hpp>
 
-#include <openstudio/resources.hxx>
 #include <openstudio/OpenStudio.hxx>
+#include <resources.hxx>
 
 using namespace openstudio;
 

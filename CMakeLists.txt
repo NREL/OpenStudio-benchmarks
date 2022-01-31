@@ -249,6 +249,7 @@ set(benchmark_src
   utilities/IdfObjectParse_Benchmark.cpp
   utilities/Workspace_Benchmark.cpp
   utilities/LoadIdd_Benchmark.cpp
+  utilities/IdfFileGetObjects_Benchmark.cpp
 
   osversion/VersionTranslation_Benchmark.cpp
 
