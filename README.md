@@ -4,7 +4,10 @@ A collection of microbenchmarks for the [OpenStudio SDK](https://github.com/NREL
 
 ```
 mkdir build && cd build
-openstudio_DIR=/usr/local/openstudio-3.3.0/lib/cmake/openstudio/ cmake -G Ninja ..
+# For example:
+cmake -Dopenstudio_DIR=/usr/local/openstudio-3.3.0/lib/cmake/openstudio/ -G Ninja -DCMAKE_BUILD_TYPE:STRING=Release .
+# or from a build directory after building the package
+cmake -Dopenstudio_DIR=$os_build_rel2/_CPack_Packages/Darwin/TGZ/OpenStudio-3.5.1-alpha+3291a14888-Darwin-arm64/lib/cmake/openstudio/ -G Ninja -DCMAKE_BUILD_TYPE:STRING=Release .
 ninja
 ```
 
