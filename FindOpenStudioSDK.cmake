@@ -1,61 +1,40 @@
-# Check system info globally so we can use it everywhere after: Has to be done before FindOpenStudioSDK.cmake
-if(APPLE)
-  # Looking at cmake source code OS_RELEASE is already set to the output of `sw_vers -productVersion` which is what we want
-  cmake_host_system_information(RESULT OSX_VERSION QUERY OS_RELEASE)
-  message("-- OS_RELEASE variable is set to: " ${OSX_VERSION})
-  if(NOT CMAKE_OSX_DEPLOYMENT_TARGET STREQUAL "")
-    message("Using CMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-    set(OSX_VERSION "${CMAKE_OSX_DEPLOYMENT_TARGET}")
-  endif()
-
-  # The output is like 10.12.6 or 10.13, let's strip the end component if any
-  string(REGEX REPLACE "^([0-9]+\\.[0-9]+)\\.?.*" "\\1" OSX_VERSION_MAJOR_MINOR ${OSX_VERSION})
-
-elseif(UNIX)
-  # OS_RELEASE is the result of `uname -r` which is unhelpful (eg '5.4.0-42-generic')
-  find_program(LSB_RELEASE lsb_release)
-  # -rs outputs only 16.04, or 18.04
-  execute_process(COMMAND ${LSB_RELEASE} -rs OUTPUT_VARIABLE LSB_RELEASE_VERSION_SHORT OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-  # -is outputs "Ubuntu" or "Fedora"
-  execute_process(COMMAND ${LSB_RELEASE} -is OUTPUT_VARIABLE LSB_RELEASE_ID_SHORT OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-endif()
-
-
 set(OPENSTUDIO_VERSION_MAJOR 3)
-set(OPENSTUDIO_VERSION_MINOR 3)
-set(OPENSTUDIO_VERSION_PATCH 0)
+set(OPENSTUDIO_VERSION_MINOR 5)
+set(OPENSTUDIO_VERSION_PATCH 1)
 set(OPENSTUDIO_VERSION "${OPENSTUDIO_VERSION_MAJOR}.${OPENSTUDIO_VERSION_MINOR}.${OPENSTUDIO_VERSION_PATCH}")
 
 #If this is an official release, leave this "", otherwise put for eg '-rc1'
 set(OPENSTUDIO_VERSION_PRERELEASE "")
 # Enter SHA, always, eg "+79857912c4"
-set(OPENSTUDIO_VERSION_SHA "+ad235ff36e")
+set(OPENSTUDIO_VERSION_SHA "+22e1db7be5")
 
 # Paths where the cmake-downloaded archives will be put
 set(OPENSTUDIO_ARCHIVE_DIR "${PROJECT_BINARY_DIR}/OpenStudio-${OPENSTUDIO_VERSION}")
 
+set(OPENSTUDIO_EXT "tar.gz")
+
 # If downloaded, we need the SHA to match. This block is here since we need "OPENSTUDIO_PLATFORM" anyways
 if(APPLE)
-  set(OPENSTUDIO_EXPECTED_HASH 77c2bf77f07dc2e2af7658df55940c49)
-  set(OPENSTUDIO_PLATFORM "Darwin")
-  set(OPENSTUDIO_EXT "tar.gz")
-elseif(UNIX)
+  if(ARCH MATCHES "arm64")
+    set(OPENSTUDIO_EXPECTED_HASH 6122d16d70d25f51db28dd3697678c29)
+    set(OPENSTUDIO_PLATFORM "Darwin-arm64")
+  else()
+    set(OPENSTUDIO_EXPECTED_HASH f21b03a44aa9ac3e52a4bdfa20009171)
+    set(OPENSTUDIO_PLATFORM "Darwin-x86_64")
+  endif()
 
+elseif(UNIX)
   if(LSB_RELEASE_VERSION_SHORT MATCHES "20.04")
-    set(OPENSTUDIO_EXPECTED_HASH 7fca6ef73399fdb21cde01aca4223d7c)
+    set(OPENSTUDIO_EXPECTED_HASH 6e5c93002f0cfb445dcdcdb1270261a4)
     set(OPENSTUDIO_PLATFORM "Ubuntu-20.04")
   else() # Assumes 18.04
-    set(OPENSTUDIO_EXPECTED_HASH 24858ac666a3d2fc40d0cff7b4f444b9)
+    set(OPENSTUDIO_EXPECTED_HASH 3c8bba6aa14fa8de9927c928576702a3)
     set(OPENSTUDIO_PLATFORM "Ubuntu-18.04")
   endif()
-  set(OPENSTUDIO_EXT "tar.gz")
 
 elseif(WIN32)
-  set(OPENSTUDIO_EXPECTED_HASH f01ddb50a7ce1f4461e1919350e7c629)
+  set(OPENSTUDIO_EXPECTED_HASH bc83efcb140d20f8f9758559a58c4347)
   set(OPENSTUDIO_PLATFORM "Windows")
-  set(OPENSTUDIO_EXT "tar.gz")
 endif()
 
 
@@ -65,11 +44,12 @@ set(OPENSTUDIO_ARCHIVE_NAME "${OPENSTUDIO_ARCHIVE_BASENAME}.${OPENSTUDIO_EXT}"
 
 # See if we can find the openstudio package with the right short version (eg 3.1.0) directly
 # (either installed and in PATH, or if user supplied openstudio_DIR in the cmake command)
-find_package(openstudio "${OPENSTUDIO_VERSION}" CONFIG
+find_package(openstudio "${OPENSTUDIO_VERSION}"  CONFIG
   PATHS
     "${OPENSTUDIO_ARCHIVE_DIR}/${OPENSTUDIO_ARCHIVE_BASENAME}"
   HINTS
     "${OPENSTUDIO_ARCHIVE_DIR}"
+  NO_DEFAULT_PATH
 )
 if(openstudio_FOUND)
   message("Found specified openstudio at openstudio_DIR=${openstudio_DIR}")
@@ -78,16 +58,21 @@ else()
   # Not found: no problem, we download it
   # base link for release builds
   set(OPENSTUDIO_BASELINK_RELEASE
-    #"https://openstudio-builds.s3.amazonaws.com/${OPENSTUDIO_VERSION}"
     "https://github.com/NREL/OpenStudio/releases/download/v${OPENSTUDIO_VERSION}${OPENSTUDIO_VERSION_PRERELEASE}/"
     CACHE STRING "Base link to where the openstudio archives are hosted" FORCE)
 
+  if (WIN32)
+    set(WIN_SUBFOLDER "/signed")
+  endif()
   # base link for develop builds. (Using https will fail)
   # Note: this should be set to ""http://openstudio-ci-builds.s3-website-us-west-2.amazonaws.com/develop" for nightly builds
   # Occasionally we can point to a specific PR by using something like ""http://openstudio-ci-builds.s3-website-us-west-2.amazonaws.com/PR-4080"
   set(OPENSTUDIO_BASELINK_CI
-    "http://openstudio-ci-builds.s3-website-us-west-2.amazonaws.com/develop"
-    #"http://openstudio-ci-builds.s3-website-us-west-2.amazonaws.com/PR-4121"
+    # "http://openstudio-ci-builds.s3-website-us-west-2.amazonaws.com/develop"
+    # TODO: TEMPORARY point to a specific subfolder / PR
+    # "http://openstudio-ci-builds.s3-website-us-west-2.amazonaws.com/PR-4712"
+    "http://openstudio-ci-builds.s3-website-us-west-2.amazonaws.com/${OPENSTUDIO_VERSION}${OPENSTUDIO_VERSION_PRERELEASE}${WIN_SUBFOLDER}"
+
     CACHE STRING "Base link to where the openstudio develop archives are hosted" FORCE)
 
   # Make subdir if it doesn't exist
@@ -226,7 +211,7 @@ else()
     OUTPUT_STRIP_TRAILING_WHITESPACE)
   if (CLI_RESULT)
     message(AUTHOR_WARNING "Cannot use the openstudio CLI at \"${openstudio_EXECUTABLE}\"")
-  elseif(NOT CLI_VERSION STREQUAL "${OPENSTUDIO_VERSION}${OPENSTUDIO_VERSION_SHA}")
+  elseif(NOT CLI_VERSION STREQUAL "${OPENSTUDIO_VERSION}${OPENSTUDIO_VERSION_PRERELEASE}${OPENSTUDIO_VERSION_SHA}")
     execute_process (COMMAND "${openstudio_EXECUTABLE}" -e "puts OpenStudio::openStudioVersion"
       RESULT_VARIABLE CLI_RESULT
       OUTPUT_VARIABLE CLI_SHORT_VERSION

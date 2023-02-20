@@ -134,91 +134,36 @@ endif()
 #                              C O N A N                              #
 #######################################################################
 
-set(CMAKE_CONAN_EXPECTED_HASH 52a255a933397fdce3d0937f9c737e98)
-set(CMAKE_CONAN_VERSION "0.17.0")
+# Conan
 
-if(EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
-  file(MD5 "${CMAKE_BINARY_DIR}/conan.cmake" CMAKE_CONAN_HASH)
-endif()
-if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake" OR NOT "${CMAKE_CONAN_HASH}" MATCHES "${CMAKE_CONAN_EXPECTED_HASH}")
-  # Put it in CMAKE_BINARY_DIR so we don't end up with two when building OpenStudioApplication
-  message(STATUS "Downloading conan.cmake ${CMAKE_CONAN_VERSION} from https://github.com/conan-io/cmake-conan")
-  file(DOWNLOAD "https://github.com/conan-io/cmake-conan/raw/${CMAKE_CONAN_VERSION}/conan.cmake"
-     "${CMAKE_BINARY_DIR}/conan.cmake")
+# Note JM 2019-04-24: Another option is to globally set "print_run_commands = True" in ~/.conan/conan.conf
+option(CONAN_PRINT_RUN_COMMANDS "Log every conan self.run command" OFF)
+mark_as_advanced(CONAN_PRINT_RUN_COMMANDS)
+if(CONAN_PRINT_RUN_COMMANDS)
+  set(ENV{CONAN_PRINT_RUN_COMMANDS} "1")
+  message(STATUS "Setting CONAN_PRINT_RUN_COMMANDS: $ENV{CONAN_PRINT_RUN_COMMANDS}")
 else()
-  message(STATUS "Using existing conan.cmake")
+  unset(ENV{CONAN_PRINT_RUN_COMMANDS})
+  message(STATUS "CONAN_PRINT_RUN_COMMANDS: $ENV{CONAN_PRINT_RUN_COMMANDS}")
 endif()
 
-include(${CMAKE_BINARY_DIR}/conan.cmake)
+set(BUILD_BENCHMARK TRUE)
+# Attempt to run, it'll do the right thing if the calling cmake script already ran it
+set(CONAN_INSTALL_FILE "${PROJECT_SOURCE_DIR}/ConanInstall.cmake")
+include("${CONAN_INSTALL_FILE}")
 
-conan_check(VERSION 1.44.0 REQUIRED)
-
-message(STATUS "openstudio: RUNNING CONAN")
-
-# Add NREL remote and place it first in line, since we vendored dependencies to NREL's repo, they will be picked first
-conan_add_remote(NAME nrel INDEX 0
-  URL https://conan.commercialbuildings.dev/artifactory/api/conan/openstudio)
-
-conan_add_remote(NAME bincrafters
-  URL https://bincrafters.jfrog.io/artifactory/api/conan/public-conan)
-
-# Enable revisions in conan: check if they are already enabled, if not do it and warn user
-execute_process(
-  COMMAND ${CONAN_CMD} config get general.revisions_enabled
-  OUTPUT_VARIABLE CONAN_REV_STATUS
-  ERROR_VARIABLE CONAN_REV_STATUS
-  OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-message(STATUS "Conan: config get general.revisions_enabled=${CONAN_REV_STATUS}")
-if (NOT "${CONAN_REV_STATUS}" STREQUAL "True")
-  message(AUTHOR_WARNING "Conan: Force enabling revisions (conan config set general.revisions_enabled=True)")
-  execute_process(COMMAND ${CONAN_CMD} config set general.revisions_enabled=True)
-endif()
-
-conan_cmake_configure(REQUIRES
-  "benchmark/1.5.2"
-  "boost/1.73.0#4129a76c9b83c300fc103e36d1908792"
-  # "pugixml/1.10#64b3ebc897bb9d9854c8a2443bf112a8"
-  "jsoncpp/1.9.3#073a6d3cb40911d7c8027bddb6ae7dbf"
-  "fmt/7.0.1#0580b1492b1dddb43b1768e68f25c43c"
-  "openssl/1.1.0l#7f3fa5cfcfba31fffa344c71a9795176" # ruby 2.5.5 won't work with 1.1.1x, so use 1.1.0l here to try to force every package to align on the same as ruby
-  "cpprestsdk/2.10.16#d097ff9a8719d9d0ed34293c2ebd90ed"
-  "pugixml/1.10#64b3ebc897bb9d9854c8a2443bf112a8"
-  GENERATORS cmake_find_package
-)
-
-conan_cmake_autodetect(settings
-  BUILD_TYPE Release
-)
-
-conan_cmake_install(PATH_OR_REFERENCE .
-                    BUILD missing
-                    SETTINGS ${settings})
-
-message("CONAN_LIBS=${CONAN_LIBS}")
-
-# Search first in the binary dir, where conan will install finders, then
-# search for modules in the root dir to override cmake ones
-# Start with ROOT, then PROJECT_BINARY_DIR
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_BINARY_DIR}" "${PROJECT_SOURCE_DIR}/CMake")
-include_directories("${CMAKE_CURRENT_BINARY_DIR}")
-
-
-find_package(benchmark REQUIRED)
-find_package(fmt)
-
-# These are part of OpenStudio's INTERFACE_LINK_LIBRARIES so we need to add them
-find_package(Boost)
-find_package(JsonCpp)
-find_package(cpprestsdk)
-find_package(OpenSSL)
-find_package(pugixml)
-# And we need to define the specific CONAN_PKG::target it's looking for
-add_library(CONAN_PKG::boost ALIAS Boost::Boost)
-add_library(CONAN_PKG::jsoncpp ALIAS JsonCpp::JsonCpp)
-add_library(CONAN_PKG::cpprestsdk ALIAS cpprestsdk::cpprestsdk)
-add_library(CONAN_PKG::openssl ALIAS OpenSSL::OpenSSL)
-add_library(CONAN_PKG::pugixml ALIAS pugixml::pugixml)
+# A macro to find a conan related value especially when using multi-config builds (MSVC)
+# But it also works with single-config builds
+macro(FindValue ValueName)
+  set(LocalVar "")
+  set(LocalVar $<$<CONFIG:Debug>:${${ValueName}_DEBUG}>$<$<CONFIG:Release>:${${ValueName}_RELEASE}>$<$<CONFIG:RelWithDebInfo>:${${ValueName}_RELWITHDEBINFO}>$<$<CONFIG:MinSizeRel>:${${ValueName}_MINSIZEREL}>
+  )
+#  list(JOIN LocalVar "" LocalVar)
+  string(STRIP ${LocalVar} LocalVar)
+  set(CURRENT_${ValueName} $<IF:$<BOOL:${LocalVar}>,${LocalVar},${${ValueName}}>)
+  # For debug purposes
+  # message(STATUS "Found '${ValueName}' as '${CURRENT_${ValueName}}'")
+endmacro()
 
 ###############################################################################
 #                              E X E C U T A B L E                            #
@@ -262,10 +207,10 @@ foreach( bench_file ${benchmark_src} )
   message("bench_name=${bench_name}, bench_dir=${bench_dir}")
   add_executable( ${bench_name} ${bench_file} )
   target_link_libraries(${bench_name} PRIVATE
-    benchmark::benchmark
+    CONAN_PKG::benchmark
     openstudio::openstudiolib
     project_options
-    fmt::fmt
+    CONAN_PKG::fmt
   )
   set_target_properties(${bench_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${bench_dir}")
   add_dependencies(run_benchmarks ${bench_name})
